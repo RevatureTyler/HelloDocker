@@ -65,7 +65,7 @@ class Cam:
         return (SX + (p[0] - self.x) * s, SY + (p[1] - self.y) * s), s
 
     def fog(self, z):
-        return math.exp(-max(0.0, z - self.z - 1100) / 2600)
+        return math.exp(-max(0.0, z - self.z - 1500) / 3200)
 
     def card(self, frame, L, z, fog=True, alpha=1.0, erase=None):
         """draw a flat card (img, world x0, y0, rs) facing the camera at depth z."""
@@ -260,6 +260,7 @@ def build_rib(i):
     p.paper([(nx - 250, 300), (nx + 250, 300), (nx + 262, 340), (nx - 262, 340)], (132, 120, 114), 410 + i, amp=1.6, edge=(190, 170, 150))
     p.paper([(nx - 270, -350), (nx + 270, -350), (nx + 270, -268), (nx - 270, -268)], (40, 34, 38), 420 + i, amp=2, edge=None)
     p.paper([(nx - 262, -344), (nx + 262, -344), (nx + 262, -276), (nx - 262, -276)], (84, 76, 80), 421 + i, amp=2, edge=(170, 156, 146))
+    dress_rib(p, side, i)
     torch_bracket(p, -side * 590, -170, 500 + i)
     # corridor floor (ground row)
     p.paper([(-1450, FLOOR), (1450, FLOOR), (1450, 1400), (-1450, 1400)], (70, 60, 58), 600 + i, amp=2.5, edge=(150, 136, 126))
@@ -271,6 +272,100 @@ def build_rib(i):
     L = p.finish(700 + i, shadow=None, tex=0.3)
     op, ni = rib_polys(side)
     return cut(L, [torn(op, 1.5, 710 + i), torn(ni, 1.2, 720 + i)])
+
+
+def statue(p, x, seed):
+    """guardian statue in a tall niche, with a brazier at its feet."""
+    p.paper(arch(x - 150, x + 150, 330, -250), (26, 22, 28), seed, amp=2, edge=(120, 106, 100))
+    stone = (150, 138, 128)
+    p.paper([(x - 70, 300), (x + 70, 300), (x + 64, 262), (x - 64, 262)], (120, 110, 104), seed + 1, amp=1.2, edge=(190, 174, 160))
+    robe = [(x - 58, 262), (x + 58, 262), (x + 40, 20), (x + 30, -120), (x - 30, -120), (x - 40, 20)]
+    p.paper(robe, stone, seed + 2, amp=1.5, edge=(210, 196, 180))
+    for k in range(4):
+        p.line([(x - 30 + k * 20, -100), (x - 40 + k * 26, 255)], (112, 102, 96), 2.5)
+    p.paper([(x - 44, -120), (x + 44, -120), (x + 36, -150), (x - 36, -150)], stone, seed + 3, amp=1, edge=(210, 196, 180))
+    p.paper(circ(x, -178, 30, 24), stone, seed + 4, amp=0.8, edge=(210, 196, 180))
+    p.paper([(x - 34, -186), (x + 34, -186), (x + 22, -238), (x, -250), (x - 22, -238)], (130, 118, 110), seed + 5, amp=0.8, edge=(200, 186, 170))
+    p.d.rectangle(p.P([(x - 16, -184), (x + 16, -172)]), fill=(40, 34, 36, 255))
+    p.line([(x + 52, -230), (x + 46, 300)], (96, 86, 80), 7)                                # staff
+    p.paper(circ(x + 52, -236, 12, 12), (180, 150, 90), seed + 6, amp=0.5, edge=None)
+    p.paper([(x + 30, -100), (x + 56, -90), (x + 52, -60), (x + 26, -70)], stone, seed + 7, amp=0.6, edge=(210, 196, 180))   # hand on staff
+    # brazier bowl on a tripod
+    p.line([(x - 26, 330), (x, 300)], (40, 32, 28), 4); p.line([(x + 26, 330), (x, 300)], (40, 32, 28), 4)
+    p.paper([(x - 34, 300), (x + 34, 300), (x + 24, 318), (x - 24, 318)], (70, 54, 38), seed + 8, amp=0.6, edge=(170, 130, 80))
+
+
+def shelf(p, x0, x1, seed):
+    """wooden shelves of scrolls, books and jars."""
+    r = np.random.default_rng(seed)
+    wood, dark = (84, 58, 36), (46, 32, 22)
+    p.paper([(x0 - 10, -280), (x1 + 10, -280), (x1 + 10, 360), (x0 - 10, 360)], dark, seed, amp=1.5, edge=(140, 110, 80))
+    for y in (-150, 0, 150, 300):
+        p.paper([(x0 - 14, y), (x1 + 14, y), (x1 + 14, y + 14), (x0 - 14, y + 14)], wood, seed + y, amp=1, edge=(170, 130, 90))
+    for y in (-150, 0, 150, 300):
+        x = x0 + 6
+        while x < x1 - 30:
+            kind = r.integers(3)
+            if kind == 0:     # scroll pile
+                for k in range(3):
+                    cy_ = y - 12 - k * 18
+                    p.paper([(x, cy_ - 8), (x + 70, cy_ - 8), (x + 70, cy_ + 8), (x, cy_ + 8)], (206, 184, 138), seed + int(x) + k, amp=0.5, edge=(240, 226, 190))
+                    p.d.ellipse(p.P([(x + 64, cy_ - 8), (x + 76, cy_ + 8)]), fill=(150, 120, 80, 255))
+                x += 86
+            elif kind == 1:   # books
+                for k in range(int(r.integers(3, 6))):
+                    h = r.uniform(70, 110); w = r.uniform(14, 22)
+                    c = [(110, 40, 30), (50, 70, 60), (90, 70, 40), (60, 46, 70)][r.integers(4)]
+                    p.paper([(x, y), (x + w, y), (x + w, y - h), (x, y - h)], c, seed + int(x * 3) + k, amp=0.4, edge=(200, 170, 120))
+                    p.line([(x + 2, y - h * 0.8), (x + w - 2, y - h * 0.8)], (210, 170, 90), 1.5)
+                    x += w + 2
+                x += 12
+            else:             # clay jar
+                h = r.uniform(50, 80)
+                pts = [(x + 26 + 24 * math.sin(math.pi * f) ** 0.8 * (1 if f < 0.85 else 0.6), y - f * h) for f in np.linspace(0, 1, 12)]
+                pts += [(2 * (x + 26) - px, py) for px, py in reversed(pts)]
+                p.paper(pts, (140, 84, 48), seed + int(x * 5), amp=0.6, edge=(200, 150, 100))
+                x += 62
+
+
+def urns(p, x, seed, flip=1):
+    for k, (dx, h, w) in enumerate(((0, 150, 52), (flip * 80, 110, 42), (flip * -60, 90, 36))):
+        cx = x + dx
+        pts = [(cx + w * math.sin(math.pi * f * 0.95) ** 1.1 * (1 if f < 0.82 else 0.55), FLOOR + 6 - f * h) for f in np.linspace(0, 1, 18)]
+        pts += [(2 * cx - px, py) for px, py in reversed(pts)]
+        p.paper(pts, [(132, 80, 44), (110, 70, 42), (150, 100, 60)][k], seed + k, amp=0.8, edge=(200, 150, 100))
+        p.line([(cx - w * 0.8, FLOOR + 6 - h * 0.5), (cx + w * 0.8, FLOOR + 6 - h * 0.5)], (70, 44, 26), 3)
+    r = np.random.default_rng(seed)
+    for k in range(7):   # rubble
+        rx = x + r.uniform(-160, 160); rr = r.uniform(8, 20)
+        p.paper(circ(rx, FLOOR + 10 - rr * 0.3, rr, 9), np.array((110, 100, 94)) * r.uniform(0.7, 1), seed + 20 + k, amp=rr * 0.2, edge=(170, 156, 140))
+
+
+def cobweb(p, x, y, sx, seed):
+    c = (200, 196, 190, 120)
+    ends = [(x + sx * 170, y), (x + sx * 150, y + 70), (x + sx * 90, y + 140), (x, y + 170)]
+    for ex, ey in ends:
+        p.d.line(p.P([(x, y), (ex, ey)]), fill=c, width=p.W(1.2))
+    for f in (0.3, 0.55, 0.8):
+        pts = [(x + (ex - x) * f, y + (ey - y) * f) for ex, ey in ends]
+        p.d.line(p.P(pts), fill=c, width=p.W(1))
+
+
+def dress_rib(p, side, i):
+    """fill both flanks of an arch wall so no side of the frame is empty."""
+    statue(p, -side * 1040, 1500 + i * 20)
+    shelf(p, side * 900 if side > 0 else side * 1340, side * 1340 if side > 0 else side * 900, 1600 + i * 30)
+    urns(p, -side * 720, 1700 + i * 10, flip=-side)
+    cobweb(p, -side * 1440, -560, side, 1800 + i)
+    cobweb(p, side * 1440, -560, -side, 1810 + i)
+    r = np.random.default_rng(1900 + i)
+    for k in range(6):   # roots through the cracks above
+        x, y = r.uniform(-1400, 1400), -700
+        if abs(x) < 520: continue
+        pts = [(x, y)]
+        for _ in range(8):
+            x += r.uniform(-16, 16); y += r.uniform(15, 35); pts.append((x, y))
+        p.line(pts, (40, 28, 20), r.uniform(3, 6))
 
 
 def alcove_back(i):
@@ -293,21 +388,30 @@ def alcove_0(p, nx):   # LOST TREASURE: coins + jeweled crown
             coin(p, cx + u * w, 262 - h * math.sin(math.pi * (u + 0.5)) ** 0.8 * r.uniform(0.1, 0.95), r.uniform(6, 9), r)
     for _ in range(26):
         coin(p, nx + r.uniform(-160, 160), r.uniform(270, 300), r.uniform(6, 9), r)
-    # crown resting on the pile
-    cx, by = nx - 40, 200
-    band = [(cx - 70, by), (cx + 70, by), (cx + 66, by - 36), (cx - 66, by - 36)]
-    pts = [(cx - 66, by - 36)]
-    for k in range(5):
-        x = cx - 66 + k * 33
-        pts += [(x + 8, by - 36), (x + 16.5, by - 92 + (14 if k % 2 else 0)), (x + 25, by - 36)]
-    pts += [(cx + 66, by - 36)]
-    p.paper(pts + [(cx + 66, by - 30), (cx - 66, by - 30)], (222, 176, 70), 30, amp=0.8, edge=(255, 230, 150))
-    p.paper(band, (206, 156, 56), 31, amp=0.8, edge=(255, 226, 140))
-    for k, (dx, c) in enumerate([(-44, (180, 30, 40)), (0, (40, 120, 190)), (44, (40, 150, 80))]):
+    crown(p, nx - 40, 214)
+    for _ in range(14):   # coins spilling over the crown's rim so it sits in the pile
+        coin(p, nx - 40 + r.uniform(-90, 90), r.uniform(208, 232), r.uniform(6, 9), r)
+
+
+def crown(p, cx, by):
+    """solid jeweled crown: band + five arched points, pearls and gems."""
+    P = lambda pts: [(cx + x, by + y) for x, y in pts]
+    p.paper(P([(-62, -34), (62, -34), (58, -42), (-58, -42)]), (120, 80, 28), 29, amp=0.5, edge=None)   # dark inner back rim
+    body = [(-66, -30), (-76, -104), (-52, -66), (-38, -116), (-18, -70), (0, -132), (18, -70), (38, -116), (52, -66), (76, -104), (66, -30)]
+    p.paper(P(body), (222, 172, 66), 30, amp=0.6, edge=(255, 228, 150), edge_w=1.4)
+    p.paper(P([(-66, -30), (-76, -104), (-52, -66), (-38, -116), (-18, -70), (-8, -60), (-20, -30)]), (190, 140, 48), 32, amp=0.5, edge=None)   # shaded left half
+    for x in (-38, 0, 38):   # engraved ridges up each point
+        p.line(P([(x * 0.9, -36), (x, -100 - (16 if x == 0 else 0))]), (176, 128, 44), 2)
+    p.paper(P([(-72, 0), (72, 0), (68, -34), (-68, -34)]), (206, 156, 56), 31, amp=0.6, edge=(255, 226, 140))
+    p.line(P([(-68, -30), (68, -30)]), (255, 232, 160), 2); p.line(P([(-70, -4), (70, -4)]), (130, 88, 28), 2)
+    for dx, c in ((-44, (180, 30, 40)), (0, (40, 120, 190)), (44, (40, 150, 80))):
         p.d.ellipse(p.P([(cx + dx - 11, by - 26), (cx + dx + 11, by - 8)]), fill=c + (255,), outline=(255, 230, 160, 255), width=p.W(2))
-    for k in range(5):
-        x = cx - 66 + k * 33 + 16.5; y = by - 92 + (14 if k % 2 else 0)
-        p.d.ellipse(p.P([(x - 6, y - 6), (x + 6, y + 6)]), fill=(250, 220, 140, 255))
+        p.d.ellipse(p.P([(cx + dx - 6, by - 23), (cx + dx - 1, by - 18)]), fill=(255, 255, 255, 200))
+    for dx in (-24, 24):
+        p.d.ellipse(p.P([(cx + dx - 4, by - 21), (cx + dx + 4, by - 13)]), fill=(250, 236, 200, 255))
+    for x, y in ((-76, -104), (-38, -116), (0, -132), (38, -116), (76, -104)):   # pearls on the points
+        p.d.ellipse(p.P([(cx + x - 7, by + y - 7), (cx + x + 7, by + y + 7)]), fill=(246, 232, 200, 255), outline=(150, 120, 80, 255), width=p.W(1.5))
+    p.d.ellipse(p.P([(cx - 7, by - 92), (cx + 7, by - 78)]), fill=(170, 30, 50, 255), outline=(255, 230, 160, 255), width=p.W(1.5))
 
 
 def alcove_1(p, nx):   # ANCIENT RUINS: collapsed archway, roots, sand
@@ -569,7 +673,7 @@ def build_assets():
     A['sigil'] = Carving(sm, 2.5, -sw / 2, -70, Z_BACK - 1)
     yy, xx = np.mgrid[0:OH, 0:OW].astype(np.float32)
     e = np.sqrt(((xx - OW / 2) / (OW * 0.55)) ** 2 + ((yy - OH / 2) / (OH * 0.62)) ** 2) + (fbm(OH, OW, 60, 7, 4) - 0.5) * 0.3
-    A['vig'] = np.clip(1 - 0.8 * np.clip((e - 0.74) / 0.5, 0, 1) ** 1.4, 0.06, 1)[..., None].astype(np.float32)
+    A['vig'] = np.clip(1 - 0.6 * np.clip((e - 0.8) / 0.5, 0, 1) ** 1.4, 0.2, 1)[..., None].astype(np.float32)
     r = np.random.default_rng(77)
     A['dust'] = np.stack([r.uniform(-900, 900, 700), r.uniform(-600, 420, 700), r.uniform(-800, 8200, 700), r.uniform(0, 1, 700)], 1)
     shaft = np.zeros((600, 300), np.float32)
@@ -617,6 +721,9 @@ def lights(t, cam):
             L.append(((x, -215, z - 10), 520, (1.05, 0.6, 0.28), 1.0 * fl))
     for i, z in enumerate(Z_RIBS):
         L.append(((SIDES[i] * NX, 60, z + 60), 430, GLOW[i], 0.45 + 0.85 * reveal(i, t)))
+        fl = 1 + 0.1 * math.sin(t * 7.1 + i * 3) + 0.06 * math.sin(t * 15.3 + i)
+        L.append(((-SIDES[i] * 1040, 150, z - 10), 520, (1.05, 0.6, 0.3), 0.85 * fl))    # statue brazier
+        L.append(((SIDES[i] * 1120, 0, z - 10), 480, (0.55, 0.5, 0.7), 0.35))           # cool fill on the shelves
     conv = ss(seg(t, 21.0, 24.5))
     L.append(((0, -100, Z_BACK), 900, (1.0, 0.7, 0.36), 0.2 + 0.25 * conv))
     for k, (x, y, z) in enumerate([(-880, -335, Z_PILLAR), (880, -335, Z_PILLAR), (-560, -335, Z_BACK), (560, -335, Z_BACK)]):
@@ -670,6 +777,7 @@ def render_frame(fi):
     C(A['door'], 0)
     # torch flames (depth-sorted so walls hide them)
     flames = [((x, -176, 0), 1.0) for x in (-560, 560)] + [((-SIDES[i] * 590, -176, Z_RIBS[i]), 1.0) for i in range(4)]
+    flames += [((-SIDES[i] * 1040, 302, Z_RIBS[i]), 0.55) for i in range(4)]
     flames += [((x, -296, z), ignite(k, t)) for k, (x, z) in enumerate([(-880, Z_PILLAR), (880, Z_PILLAR), (-560, Z_BACK), (560, Z_BACK)])]
     for k, ((x, y, z), g) in enumerate(flames):
         if g <= 0.01: continue
@@ -711,7 +819,7 @@ def render_frame(fi):
 
     # -------- lighting
     q = 4; lw, lh = OW // q, OH // q
-    light = np.broadcast_to(np.array([0.15, 0.15, 0.27], np.float32), (lh, lw, 3)).copy()
+    light = np.broadcast_to(np.array([0.18, 0.18, 0.3], np.float32), (lh, lw, 3)).copy()
     for pos, R, col, inten in lights(t, cam):
         s, sc = cam.proj(pos)
         if s is None or inten <= 0: continue

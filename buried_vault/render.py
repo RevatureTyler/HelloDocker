@@ -338,13 +338,18 @@ def build_leaf():
         p.line([(sg * 0.02 * s, -0.42 * s), (sg * 0.1 * s, -0.33 * s), (sg * 0.18 * s, -0.3 * s)], GOLD, 0.012 * s)
     p.paper([(0, -0.47 * s), (0.03 * s, -0.4 * s), (0, -0.36 * s), (-0.03 * s, -0.4 * s)], GOLD, 650, amp=0.3, edge=None)
     p.paper([(0, 0.46 * s), (0.03 * s, 0.39 * s), (0, 0.35 * s), (-0.03 * s, 0.39 * s)], GOLD, 651, amp=0.3, edge=None)
-    esc = [(x * 1.45, y * 1.3 - 0.01 * s) for x, y in keyhole_poly(0, 0, s)]  # escutcheon
-    p.paper(esc, (150, 114, 64), 660, amp=0.6, edge=(220, 180, 110), edge_w=1.5)
-    for k in range(9):
-        a = math.pi * (1.05 + 0.9 * k / 8)
-        p.rivet(0.16 * s * math.cos(a), -0.144 * s + 0.16 * s * math.sin(a), 3.2)
-    p.d.polygon(p.P([(x * 1.08, y * 1.04) for x, y in keyhole_poly(0, 0, s)]), fill=GOLD + (255,))
-    p.d.polygon(p.P(keyhole_poly(0, 0, s)), fill=(4, 3, 2, 255))
+    # escutcheon + keyhole, built as uniform offsets of the keyhole (round top + tapered slot)
+    hy, hr = -0.144 * s, 0.115 * s
+    def key_shape(pad):
+        return circ(0, hy, hr + pad, 90), [(-0.05 * s - pad, hy + hr * 0.5), (0.05 * s + pad, hy + hr * 0.5), (0.11 * s + pad, 0.29 * s + pad), (-0.11 * s - pad, 0.29 * s + pad)]
+    for pad, col in ((0.085 * s + 2, (220, 180, 110)), (0.085 * s, (150, 114, 64)), (0.03 * s, GOLD), (0.02 * s, (120, 84, 36))):
+        for poly in key_shape(pad):
+            p.d.polygon(p.P(poly), fill=col + (255,))
+    for k in range(11):
+        a = math.pi * (0.95 + 1.1 * k / 10)
+        p.rivet((hr + 0.058 * s) * math.cos(a), hy + (hr + 0.058 * s) * math.sin(a), 3.2)
+    for poly in key_shape(0):
+        p.d.polygon(p.P(poly), fill=(4, 3, 2, 255))
     return p.finish(24, shadow=None, tex=0.4)
 
 
