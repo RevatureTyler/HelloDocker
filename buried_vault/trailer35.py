@@ -239,9 +239,9 @@ def rib_polys(side):
 
 def build_rib(i):
     side = SIDES[i]
-    p = Painter(-1450, -1300, 2900, 2700, rs=1.3)
+    p = Painter(-2700, -1300, 5400, 2700, rs=1.3)
     p.d.rectangle((0, 0, p.im.width, p.im.height), fill=(56, 50, 54, 255))
-    stone_blocks(p, -1450, -1300, 1450, FLOOR, 100 + i * 7)
+    stone_blocks(p, -2700, -1300, 2700, FLOOR, 100 + i * 7)
     # voussoirs round the corridor arch
     r0 = OPEN_HW
     for k in range(13):
@@ -263,11 +263,11 @@ def build_rib(i):
     dress_rib(p, side, i)
     torch_bracket(p, -side * 590, -170, 500 + i)
     # corridor floor (ground row)
-    p.paper([(-1450, FLOOR), (1450, FLOOR), (1450, 1400), (-1450, 1400)], (70, 60, 58), 600 + i, amp=2.5, edge=(150, 136, 126))
+    p.paper([(-2700, FLOOR), (2700, FLOOR), (2700, 1400), (-2700, 1400)], (70, 60, 58), 600 + i, amp=2.5, edge=(150, 136, 126))
     r = np.random.default_rng(i)
     for k, y in enumerate((FLOOR + 28, FLOOR + 70, FLOOR + 130, FLOOR + 220, FLOOR + 360)):
-        p.line([(-1450, y), (1450, y)], (48, 42, 42), 2.5)
-    for x in range(-1400, 1450, 120):
+        p.line([(-2700, y), (2700, y)], (48, 42, 42), 2.5)
+    for x in range(-2700, 2700, 120):
         p.line([(x * 0.55, FLOOR), (x * 1.4, 1400)], (52, 46, 46), 2)
     L = p.finish(700 + i, shadow=None, tex=0.3)
     op, ni = rib_polys(side)
@@ -356,11 +356,16 @@ def dress_rib(p, side, i):
     statue(p, -side * 1040, 1500 + i * 20)
     shelf(p, side * 900 if side > 0 else side * 1340, side * 1340 if side > 0 else side * 900, 1600 + i * 30)
     urns(p, -side * 720, 1700 + i * 10, flip=-side)
-    cobweb(p, -side * 1440, -560, side, 1800 + i)
-    cobweb(p, side * 1440, -560, -side, 1810 + i)
+    statue(p, side * 1900, 1550 + i * 20)
+    shelf(p, -side * 1400 if side > 0 else -side * 1840, -side * 1840 if side > 0 else -side * 1400, 1650 + i * 30)
+    urns(p, side * 2250, 1750 + i * 10, flip=side)
+    urns(p, -side * 2250, 1760 + i * 10, flip=-side)
+    for sx in (-1, 1):
+        torch_bracket(p, sx * 1560, -170, 1780 + i * 3 + sx)
+        cobweb(p, sx * 2650, -560, -sx, 1800 + i + sx)
     r = np.random.default_rng(1900 + i)
-    for k in range(6):   # roots through the cracks above
-        x, y = r.uniform(-1400, 1400), -700
+    for k in range(10):   # roots through the cracks above
+        x, y = r.uniform(-2600, 2600), -700
         if abs(x) < 520: continue
         pts = [(x, y)]
         for _ in range(8):
@@ -529,9 +534,9 @@ def relic_image(t):
 
 
 def build_entrance():
-    p = Painter(-1600, -1400, 3200, 2900, rs=1.2)
+    p = Painter(-3000, -1400, 6000, 2900, rs=1.2)
     p.d.rectangle((0, 0, p.im.width, p.im.height), fill=(50, 44, 50, 255))
-    stone_blocks(p, -1600, -1400, 1600, 400, 1100, 180, 84)
+    stone_blocks(p, -3000, -1400, 3000, 400, 1100, 180, 84)
     for k in range(17):
         a0 = math.pi + math.pi * k / 17; a1 = math.pi + math.pi * (k + 1) / 17
         r0 = 720
@@ -539,7 +544,11 @@ def build_entrance():
                ((r0 + 110) * math.cos(a1), -150 + (r0 + 110) * math.sin(a1)), (r0 * math.cos(a1), -150 + r0 * math.sin(a1))]
         p.paper(pts, (122, 110, 106), 1200 + k, amp=2, edge=(180, 164, 150))
         glyph(p, (r0 + 55) * math.cos((a0 + a1) / 2), -150 + (r0 + 55) * math.sin((a0 + a1) / 2), 16, k, (40, 32, 34), 4)
-    p.paper([(-1600, FLOOR), (1600, FLOOR), (1600, 1500), (-1600, 1500)], (70, 60, 58), 1250, amp=2.5, edge=(150, 136, 126))
+    for sx in (-1, 1):
+        torch_bracket(p, sx * 1000, -170, 1240 + sx)
+        statue(p, sx * 1500, 1245 + sx)
+        urns(p, sx * 2000, 1248 + sx, flip=sx)
+    p.paper([(-3000, FLOOR), (3000, FLOOR), (3000, 1500), (-3000, 1500)], (70, 60, 58), 1250, amp=2.5, edge=(150, 136, 126))
     L = p.finish(1260, shadow=None, tex=0.3)
     return cut(L, [torn(arch(-720, 720, FLOOR + 2, -150), 2, 1270)])
 
@@ -557,16 +566,16 @@ def build_pillars():
 
 
 def build_back():
-    p = Painter(-1900, -1500, 3800, 3100, rs=1.6)
+    p = Painter(-3000, -1500, 6000, 3100, rs=1.5)
     p.d.rectangle((0, 0, p.im.width, p.im.height), fill=(58, 52, 56, 255))
-    stone_blocks(p, -1900, -1500, 1900, 320, 1400, 200, 90)
+    stone_blocks(p, -3000, -1500, 3000, 320, 1400, 200, 90)
     # smooth carving panel for the wordmark + tagline + sigil
     p.paper([(-420, -520), (420, -520), (430, 40), (-430, 40)], (40, 34, 38), 1410, amp=3, edge=None)
     p.paper([(-410, -510), (410, -510), (418, 30), (-418, 30)], (70, 64, 72), 1411, amp=3, edge=(150, 136, 130))
     for sx in (-1, 1):
         torch_bracket(p, sx * 560, -290, 1420 + sx)
         p.paper([(sx * 1100 - 100, 320), (sx * 1100 + 100, 320), (sx * 1100 + 80, -60), (sx * 1100 - 80, -60)], (26, 22, 28), 1430 + sx, amp=2, edge=(110, 96, 90))
-    p.paper([(-1900, 320), (1900, 320), (1900, 1600), (-1900, 1600)], (72, 62, 58), 1440, amp=2.5, edge=(150, 136, 126))
+    p.paper([(-3000, 320), (3000, 320), (3000, 1600), (-3000, 1600)], (72, 62, 58), 1440, amp=2.5, edge=(150, 136, 126))
     r = np.random.default_rng(14)
     for sx in (-1, 1):   # treasure heaps either side
         cx = sx * 640
@@ -655,7 +664,7 @@ A = {}
 
 
 def build_assets():
-    A['door'] = build_door_wall(); A['leaf'] = base.build_leaf()
+    A['door'] = build_door_wall(); A['leaf'] = base.build_leaf(); A['reveal'] = build_reveal()
     A['ribs'] = [build_rib(i) for i in range(4)]
     A['alc'] = [alcove_back(i) for i in range(4)]
     A['ent'] = build_entrance(); A['pillars'] = build_pillars(); A['back'] = build_back(); A['front'] = build_front_row()
@@ -685,6 +694,39 @@ def build_assets():
 
 
 # ------------------------------------------------------------------ frame render
+REVEAL_T = 150
+
+
+def build_reveal():
+    p = Painter(0, SPRING, REVEAL_T, FLOOR - SPRING, rs=1.5)
+    p.d.rectangle((0, 0, p.im.width, p.im.height), fill=(70, 62, 64, 255))
+    stone_blocks(p, 0, SPRING, REVEAL_T, FLOOR, 2100, 75, 60, col=(92, 82, 82))
+    L = p.finish(2110, shadow=None, tex=0.3)
+    a = np.asarray(L[0]).astype(np.float32)
+    u = np.linspace(0, 1, a.shape[1], dtype=np.float32)[None, :, None]
+    a[..., :3] *= 1.0 - 0.45 * u            # darker deeper into the opening
+    return (Image.fromarray(np.clip(a, 0, 255).astype(np.uint8), 'RGBA'),) + L[1:]
+
+
+def draw_quad_z(frame, cam, img, x, y0, y1, z0, z1, em=None, shade=1.0):
+    """image mapped onto a vertical plane x=const spanning depth z0..z1 (image u axis = depth), near-clipped."""
+    zc = max(z0, cam.z + NEAR + 5)
+    if zc >= z1 - 1: return
+    u0 = (zc - z0) / (z1 - z0)
+    P = [cam.proj((x, y, z))[0] for (y, z) in ((y0, zc), (y0, z1), (y1, z1), (y1, zc))]
+    if any(c is None for c in P): return
+    xs = [c[0] for c in P]; ys = [c[1] for c in P]
+    bx0, by0 = max(0, int(min(xs))), max(0, int(min(ys))); bx1, by1 = min(OW, int(max(xs)) + 1), min(OH, int(max(ys)) + 1)
+    if bx1 - bx0 < 1 or by1 - by0 < 1: return
+    src = [(u0 * img.width, 0), (img.width, 0), (img.width, img.height), (u0 * img.width, img.height)]
+    coeffs = find_coeffs([(px - bx0, py - by0) for px, py in P], src)
+    reg = img.transform((bx1 - bx0, by1 - by0), Image.PERSPECTIVE, coeffs, Image.BILINEAR)
+    a = np.asarray(reg).astype(np.float32); a[..., :3] *= shade * cam.fog((z0 + z1) / 2)
+    reg = Image.fromarray(np.clip(a, 0, 255).astype(np.uint8), 'RGBA')
+    frame.alpha_composite(reg, dest=(bx0, by0))
+    if em is not None: em.paste((0, 0, 0, 0), (bx0, by0), mask=reg.getchannel('A'))
+
+
 def draw_leaf(frame, cam, t, em=None):
     th = door_angle(t)
     img, x0, y0, rs = A['leaf']
@@ -724,6 +766,14 @@ def lights(t, cam):
         fl = 1 + 0.1 * math.sin(t * 7.1 + i * 3) + 0.06 * math.sin(t * 15.3 + i)
         L.append(((-SIDES[i] * 1040, 150, z - 10), 520, (1.05, 0.6, 0.3), 0.85 * fl))    # statue brazier
         L.append(((SIDES[i] * 1120, 0, z - 10), 480, (0.55, 0.5, 0.7), 0.35))           # cool fill on the shelves
+        L.append(((SIDES[i] * 1900, 150, z - 10), 480, (1.05, 0.6, 0.3), 0.75 * fl))
+        for sx in (-1, 1):
+            L.append(((sx * 1560, -215, z - 10), 480, (1.05, 0.6, 0.28), 0.9 * fl))
+    for sx in (-1, 1):   # soft glow on the chamber pillars before their torches ignite
+        L.append(((sx * 880, 0, Z_PILLAR - 10), 600, (0.9, 0.6, 0.35), 0.45))
+    for sx in (-1, 1):   # entrance arch torches + statue braziers
+        L.append(((sx * 1000, -215, Z_ENT - 10), 560, (1.05, 0.6, 0.28), 1.0))
+        L.append(((sx * 1500, 150, Z_ENT - 10), 480, (1.05, 0.6, 0.3), 0.8))
     conv = ss(seg(t, 21.0, 24.5))
     L.append(((0, -100, Z_BACK), 900, (1.0, 0.7, 0.36), 0.2 + 0.25 * conv))
     for k, (x, y, z) in enumerate([(-880, -335, Z_PILLAR), (880, -335, Z_PILLAR), (-560, -335, Z_BACK), (560, -335, Z_BACK)]):
@@ -768,6 +818,10 @@ def render_frame(fi):
             bob = 6 * math.sin(t * 1.4)
             C((img, SIDES[i] * NX - img.width / S / 2, -10 + bob - img.height / S / 2, S), z + 110)
         C(A['ribs'][i], z)
+        rv = A['reveal'][0]
+        for sx in (-1, 1):   # inner side of the arch: only visible from the opposite side of the corridor
+            if (cam.x - sx * OPEN_HW) * -sx > 0:
+                FN(z + REVEAL_T / 2, lambda sx=sx, z=z, rv=rv: draw_quad_z(frame, cam, rv, sx * OPEN_HW, SPRING, FLOOR, z, z + REVEAL_T, em, 0.9))
         lb = A['labels'][i]; p = carve_prog(i, t)
         if p > 0:
             C((lb.image(p), lb.x0, lb.y0, lb.rs), lb.z)
@@ -777,7 +831,9 @@ def render_frame(fi):
     C(A['door'], 0)
     # torch flames (depth-sorted so walls hide them)
     flames = [((x, -176, 0), 1.0) for x in (-560, 560)] + [((-SIDES[i] * 590, -176, Z_RIBS[i]), 1.0) for i in range(4)]
-    flames += [((-SIDES[i] * 1040, 302, Z_RIBS[i]), 0.55) for i in range(4)]
+    flames += [((-SIDES[i] * 1040, 302, Z_RIBS[i]), 0.55) for i in range(4)] + [((SIDES[i] * 1900, 302, Z_RIBS[i]), 0.55) for i in range(4)]
+    flames += [((sx * 1560, -176, Z_RIBS[i]), 1.0) for i in range(4) for sx in (-1, 1)]
+    flames += [((sx * 1000, -176, Z_ENT), 1.0) for sx in (-1, 1)] + [((sx * 1500, 302, Z_ENT), 0.55) for sx in (-1, 1)]
     flames += [((x, -296, z), ignite(k, t)) for k, (x, z) in enumerate([(-880, Z_PILLAR), (880, Z_PILLAR), (-560, Z_BACK), (560, Z_BACK)])]
     for k, ((x, y, z), g) in enumerate(flames):
         if g <= 0.01: continue
