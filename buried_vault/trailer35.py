@@ -31,7 +31,7 @@ RO, RI = 380.0, 327.0                       # entrance door frame radii
 HX = base.HINGE_X - base.DC[0]              # hinge x relative to door centre (-357)
 Z_RIBS = [1300, 2700, 4100, 5500]
 SIDES = [1, -1, 1, -1]                      # which side of the corridor each alcove is on
-NX = 650                                    # alcove centre |x|
+NX = 780                                    # alcove centre |x| (plaque + frame clear of the corridor arch)
 OPEN_HW, FLOOR, SPRING = 380, 380, -120     # corridor arch opening
 Z_ENT, Z_PILLAR, Z_CHEST, Z_BACK = 6600, 7500, 7900, 8100
 HOLD = [(9.4, 11.0), (12.6, 14.2), (15.8, 17.4), (19.0, 20.6)]
@@ -44,7 +44,7 @@ _T = [0, 2.6, 4.8, 6.6, 7.8, 8.8, 9.4, 11.0, 12.6, 14.2, 15.8, 17.4, 19.0, 20.6,
 _Z = [-760, -735, -640, -300, 0, 300, 400, 490, 1800, 1890, 3200, 3290, 4600, 4690, 6560, 7040, 7100, 7130]
 CZ = PchipInterpolator(_T, _Z)
 _PZ = [-760, 0, 400, 490, 1300, 1800, 1890, 2700, 3200, 3290, 4100, 4600, 4690, 5500, 7200]
-_PX = [0, 0, 400, 380, 0, -400, -380, 0, 400, 380, 0, -400, -380, 0, 0]
+_PX = [0, 0, 500, 480, 0, -500, -480, 0, 500, 480, 0, -500, -480, 0, 0]
 _PY = [0, -10, -30, -30, -30, -30, -30, -30, -30, -30, -30, -30, -30, -20, 0]
 CXZ, CYZ = PchipInterpolator(_PZ, _PX), PchipInterpolator(_PZ, _PY)
 
@@ -297,6 +297,7 @@ def statue(p, x, seed):
 
 def shelf(p, x0, x1, seed):
     """wooden shelves of scrolls, books and jars."""
+    x0, x1 = min(x0, x1), max(x0, x1)
     r = np.random.default_rng(seed)
     wood, dark = (84, 58, 36), (46, 32, 22)
     p.paper([(x0 - 10, -280), (x1 + 10, -280), (x1 + 10, 360), (x0 - 10, 360)], dark, seed, amp=1.5, edge=(140, 110, 80))
@@ -363,10 +364,10 @@ def cobweb(p, x, y, sx, seed):
 def dress_rib(p, side, i):
     """fill both flanks of an arch wall so no side of the frame is empty."""
     statue(p, -side * 1040, 1500 + i * 20)
-    shelf(p, side * 980 if side > 0 else side * 1400, side * 1400 if side > 0 else side * 980, 1600 + i * 30)   # clear of the plaque (ends at |x|=920)
+    shelf(p, side * 1110 if side > 0 else side * 1500, side * 1500 if side > 0 else side * 1110, 1600 + i * 30)   # clear of the plaque (ends at |x|=1050)
     urns(p, -side * 720, 1700 + i * 10, flip=-side)
     statue(p, side * 1900, 1550 + i * 20)
-    shelf(p, -side * 1400 if side > 0 else -side * 1840, -side * 1840 if side > 0 else -side * 1400, 1650 + i * 30)
+    shelf(p, -side * 1660 if side > 0 else -side * 2080, -side * 2080 if side > 0 else -side * 1660, 1650 + i * 30)
     urns(p, side * 2250, 1750 + i * 10, flip=side)
     urns(p, -side * 2250, 1760 + i * 10, flip=-side)
     for sx in (-1, 1):
@@ -774,7 +775,7 @@ def lights(t, cam):
         L.append(((SIDES[i] * NX, 60, z + 60), 430, GLOW[i], 0.45 + 0.85 * reveal(i, t)))
         fl = 1 + 0.1 * math.sin(t * 7.1 + i * 3) + 0.06 * math.sin(t * 15.3 + i)
         L.append(((-SIDES[i] * 1040, 150, z - 10), 520, (1.05, 0.6, 0.3), 0.85 * fl))    # statue brazier
-        L.append(((SIDES[i] * 1120, 0, z - 10), 480, (0.55, 0.5, 0.7), 0.35))           # cool fill on the shelves
+        L.append(((SIDES[i] * 1300, 0, z - 10), 480, (0.55, 0.5, 0.7), 0.35))           # cool fill on the shelves
         L.append(((SIDES[i] * 1900, 150, z - 10), 480, (1.05, 0.6, 0.3), 0.75 * fl))
         for sx in (-1, 1):
             L.append(((sx * 1560, -215, z - 10), 480, (1.05, 0.6, 0.28), 0.9 * fl))
