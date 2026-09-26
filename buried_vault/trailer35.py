@@ -403,9 +403,20 @@ def alcove_0(p, nx):   # LOST TREASURE: coins + jeweled crown
             coin(p, cx + u * w, 262 - h * math.sin(math.pi * (u + 0.5)) ** 0.8 * r.uniform(0.1, 0.95), r.uniform(6, 9), r)
     for _ in range(26):
         coin(p, nx + r.uniform(-160, 160), r.uniform(270, 300), r.uniform(6, 9), r)
+    # raised heap under the crown so it rests on gold, not air
+    cx, w, top = nx - 40, 300, 186
+    pts = [(cx - w / 2 + w * k / 40, 266 - (266 - top) * math.sin(math.pi * k / 40) ** 0.7) for k in range(41)] + [(cx + w / 2, 272), (cx - w / 2, 272)]
+    p.paper(pts, (184, 134, 46), 33, amp=2, edge=(240, 200, 110))
+    for _ in range(170):
+        u = r.uniform(-0.5, 0.5)
+        coin(p, cx + u * w, 266 - (266 - top) * math.sin(math.pi * (u + 0.5)) ** 0.7 * r.uniform(0.05, 0.98), r.uniform(6, 9), r)
     crown(p, nx - 40, 214)
-    for _ in range(14):   # coins spilling over the crown's rim so it sits in the pile
-        coin(p, nx - 40 + r.uniform(-90, 90), r.uniform(208, 232), r.uniform(6, 9), r)
+    # coins heaped in front of the band so it sinks into the pile
+    pts = [(cx - 110 + 220 * k / 30, 236 - 30 * math.sin(math.pi * k / 30) ** 0.8) for k in range(31)] + [(cx + 110, 250), (cx - 110, 250)]
+    p.paper(pts, (190, 140, 50), 34, amp=1.5, edge=(240, 200, 110))
+    for _ in range(60):
+        u = r.uniform(-0.5, 0.5)
+        coin(p, cx + u * 220, 236 - 30 * math.sin(math.pi * (u + 0.5)) ** 0.8 * r.uniform(0.0, 1.0), r.uniform(6, 9), r)
 
 
 def crown(p, cx, by):
