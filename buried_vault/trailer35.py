@@ -508,7 +508,7 @@ def build_sigil_mask(rs):
 
 
 def logo_word_mask(rs, height_u):
-    lg = Image.open(os.path.join(HERE, 'assets', 'logo.jpg')).convert('RGB').crop((330, 1110, 1670, 1930))
+    lg = Image.open(os.path.join(HERE, 'assets', 'logo.jpg')).convert('RGB').crop((330, 1110, 1670, 1995))
     a = np.asarray(lg).astype(np.float32)
     lum = a.mean(axis=2)
     m = np.clip((lum - 70) / 90, 0, 1)
@@ -577,7 +577,8 @@ def build_assets():
     yy, xx = np.mgrid[0:600, 0:300].astype(np.float32)
     half = 0.16 + 0.3 * yy / 600
     shaft = np.clip(1 - np.abs(xx / 300 - 0.5) / half * 2, 0, 1) ** 1.6 * (0.35 + 0.65 * yy / 600)
-    A['shaft'] = Image.fromarray(np.dstack([np.full_like(shaft, 255), np.full_like(shaft, 214), np.full_like(shaft, 140), shaft * 120]).astype(np.uint8), 'RGBA')
+    A['shaft'] = shaft_img = Image.fromarray(np.dstack([np.full_like(shaft, 255), np.full_like(shaft, 214), np.full_like(shaft, 140), shaft * 120]).astype(np.uint8), 'RGBA')
+    A['cshaft'] = shaft_img.resize((300, 190), Image.BILINEAR)
 
 
 # ------------------------------------------------------------------ frame render
@@ -614,12 +615,12 @@ def lights(t, cam):
         xs = (-560, 560) if i == 0 else (-SIDES[i - 1] * 590,)
         for k, x in enumerate(xs):
             fl = 1 + 0.12 * math.sin(t * 8.3 + i * 2 + k) + 0.07 * math.sin(t * 17.9 + i) + 0.05 * math.sin(t * 3.1 + i * 5)
-            L.append(((x, -210, z - 10), 520, (1.05, 0.6, 0.28), 1.0 * fl))
+            L.append(((x, -215, z - 10), 520, (1.05, 0.6, 0.28), 1.0 * fl))
     for i, z in enumerate(Z_RIBS):
         L.append(((SIDES[i] * NX, 60, z + 60), 430, GLOW[i], 0.45 + 0.85 * reveal(i, t)))
     conv = ss(seg(t, 21.0, 24.5))
     L.append(((0, -100, Z_BACK), 900, (1.0, 0.7, 0.36), 0.2 + 0.25 * conv))
-    for k, (x, y, z) in enumerate([(-880, -330, Z_PILLAR), (880, -330, Z_PILLAR), (-560, -330, Z_BACK), (560, -330, Z_BACK)]):
+    for k, (x, y, z) in enumerate([(-880, -335, Z_PILLAR), (880, -335, Z_PILLAR), (-560, -335, Z_BACK), (560, -335, Z_BACK)]):
         g = ignite(k, t)
         if g > 0: L.append(((x, y, z - 10), 480, (1.05, 0.62, 0.3), 0.85 * g * (1 + 0.08 * math.sin(t * 9 + k))))
     ca = chest_angle(t)
@@ -669,8 +670,8 @@ def render_frame(fi):
     FN(300, lambda: draw_leaf(frame, cam, t, em))
     C(A['door'], 0)
     # torch flames (depth-sorted so walls hide them)
-    flames = [((x, -210, 0), 1.0) for x in (-560, 560)] + [((-SIDES[i] * 590, -210, Z_RIBS[i]), 1.0) for i in range(4)]
-    flames += [((x, -330, z), ignite(k, t)) for k, (x, z) in enumerate([(-880, Z_PILLAR), (880, Z_PILLAR), (-560, Z_BACK), (560, Z_BACK)])]
+    flames = [((x, -176, 0), 1.0) for x in (-560, 560)] + [((-SIDES[i] * 590, -176, Z_RIBS[i]), 1.0) for i in range(4)]
+    flames += [((x, -296, z), ignite(k, t)) for k, (x, z) in enumerate([(-880, Z_PILLAR), (880, Z_PILLAR), (-560, Z_BACK), (560, Z_BACK)])]
     for k, ((x, y, z), g) in enumerate(flames):
         if g <= 0.01: continue
         f = flame_sprite(t, k * 3.7, 0.9 * g)
@@ -692,7 +693,8 @@ def render_frame(fi):
     ca = chest_angle(t)
     if ca > 0:
         sh = A['shaft']; k = min(1, ca / 0.8)
-        E((sh.transpose(Image.FLIP_TOP_BOTTOM), -130, -150, sh.width / 260), Z_CHEST - 1, alpha=0.45 * k)
+        cshaft = A['cshaft']   # short glow rising out of the chest, kept below the sigil
+        E((cshaft, -110, 215 - cshaft.height * 220 / cshaft.width, cshaft.width / 220), Z_CHEST - 1, alpha=0.5 * k)
     lv = sigil_level(t)
     if lv > 0:
         sg = A['sigil']
