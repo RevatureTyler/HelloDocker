@@ -537,7 +537,7 @@ def ignite(k, t):
 
 
 def chest_angle(t):
-    return math.radians(100) * ease_out(seg(t, 24.4, 25.0)) if t > 24.4 else 0.0
+    return math.radians(100) * ease_out(seg(t, 21.2, 21.9)) if t > 21.2 else 0.0
 
 
 def sigil_level(t):
@@ -585,12 +585,11 @@ def draw_leaf(frame, cam, t, em=None):
     th = door_angle(t)
     img, x0, y0, rs = A['leaf']
     W_ = img.width / rs
-    u0 = 0.0
+    xa = x0
     if th > 0.001:
         zmin = cam.z + NEAR + 5
-        need = (zmin / math.sin(th))            # leaf-local distance from hinge that is still in front of the camera
-        u0 = max(0.0, need - (HX - x0))
-    xa = x0 + u0; xb = x0 + W_
+        xa = max(x0, HX + zmin / math.sin(th))   # clip the part of the leaf that is behind the camera
+    xb = x0 + W_
     if xb - xa < 2: return
     def P(xl, yl):
         d = xl - HX
@@ -737,7 +736,7 @@ def render_frame(fi):
                     rr = rng.uniform(1.0, 2.4)
                     dd.ellipse((s[0] + vx * 0.2 - rr, s[1] + vy * 0.2 - rr, s[0] + vx * 0.2 + rr, s[1] + vy * 0.2 + rr), fill=(255, 214, 140, 230))
     # convergence: four streams of alcove light flowing into the chamber
-    tgt, _ = cam.proj((0, 120, Z_CHEST))
+    tgt, _ = cam.proj((0, 205, Z_CHEST))
     if tgt is not None:
         starts = [(-120, 250), (OW + 120, 330), (-120, 880), (OW + 120, 820)]
         for sidx, (sx, sy) in enumerate(starts):
@@ -758,7 +757,7 @@ def render_frame(fi):
     if ca > 0:
         r2 = np.random.default_rng(4)
         for j in range(40):
-            born = 24.5 + r2.uniform(0, 10); age = (t - born)
+            born = 21.4 + r2.uniform(0, 13); age = (t - born)
             if age < 0 or age > 2.5: continue
             s, sc = cam.proj((r2.uniform(-90, 90) + 10 * math.sin(age * 2 + j), 170 - age * r2.uniform(40, 90), Z_CHEST - 10))
             if s is None: continue
@@ -868,7 +867,7 @@ def audio():
     L = int(0.7 * SR); tt = np.arange(L) / SR
     ph = 2 * np.pi * np.cumsum(140 + 90 * tt + 40 * np.sin(2 * np.pi * 3 * tt)) / SR
     saw = 2 * ((ph / (2 * np.pi)) % 1) - 1
-    add(24.3, bp(saw * (np.sin(2 * np.pi * 26 * tt) > 0.2), 300, 2400) * np.sin(np.pi * tt / tt[-1]) * 0.3)
+    add(21.1, bp(saw * (np.sin(2 * np.pi * 26 * tt) > 0.2), 300, 2400) * np.sin(np.pi * tt / tt[-1]) * 0.3)
     # soft chime as the sigil lights, brighter at the flare pulse
     def chime(t0, gain, base_f=1318.5):
         L = int(4.0 * SR); tt = np.arange(L) / SR; c = np.zeros(L)
