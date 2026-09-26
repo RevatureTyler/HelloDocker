@@ -724,8 +724,8 @@ def radial(lw, lh, cx, cy, rad, sx=1.0, sy=1.0):
     return 1 / (1 + d2 * 3.0) * np.clip(1.4 - d2 * 0.35, 0, 1)
 
 
-def lantern_visibility(cam, t, ls):
-    """0 while the lantern is hidden behind the wall or the open door leaf, 1 once it is in the doorway."""
+def point_visibility(cam, t, ls):
+    """0 while a screen point inside the vault is hidden by the wall or the door leaf, 1 once it shows in the doorway."""
     dsc, zd = cam.to_screen(DC, 1.0)
     inside = (RI * zd - math.hypot(ls[0] - dsc[0], ls[1] - dsc[1])) / (35 * zd)
     th = door_angle(t)
@@ -776,7 +776,7 @@ def render_frame(fi):
             cam.draw_sprite(frame, spr, (anc[0] * EXS, anc[1] * EXS), feet, DEPTH['explorer'])
             lantern_w = (feet[0] + lan[0] * EXS, feet[1] + lan[1] * EXS)
             lantern_s, _ = cam.to_screen(lantern_w, DEPTH['explorer'])
-            lantern_vis = lantern_visibility(cam, t, lantern_s)
+            lantern_vis = point_visibility(cam, t, lantern_s)
         for k in range(3):  # moths circling the candle and lantern
             tgt = CANDLE if (k == 0 or lantern_w is None or lantern_vis < 0.5) else lantern_w
             a = t * (1.3 + 0.4 * k) + k * 2.1
@@ -800,7 +800,8 @@ def render_frame(fi):
     s, zd = cam.to_screen((560, 760), DEPTH['cprops'])
     light += radial(lw, lh, s[0] / q, s[1] / q, 300 * zd / q, 1.1, 1.0)[..., None] * np.array([1.0, 0.72, 0.36]) * 0.8 * op
     s, zd = cam.to_screen(CANDLE, DEPTH['cprops'])
-    light += radial(lw, lh, s[0] / q, s[1] / q, 170 * zd / q)[..., None] * np.array([1.0, 0.7, 0.35]) * 0.7 * op * (1 + 0.08 * math.sin(t * 13))
+    candle_vis = point_visibility(cam, t, s) if op > 0.001 else 0.0
+    light += radial(lw, lh, s[0] / q, s[1] / q, 170 * zd / q)[..., None] * np.array([1.0, 0.7, 0.35]) * 0.7 * candle_vis * (1 + 0.08 * math.sin(t * 13))
     burst = ss(seg(t, 12.75, 13.3))
     if burst > 0 and op > 0:
         s, zd = cam.to_screen((CHEST[0], CHEST[1] - 110), DEPTH['cprops'])
@@ -833,8 +834,10 @@ def render_frame(fi):
     for i, (tx, ty) in enumerate(TORCHES):
         f = flame_sprite(t, i * 3.7)
         cam.draw_sprite(em, f, (f.width / RS / 2, f.height / RS - 8), (tx, ty), 1.0)
-    if op > 0.001:
+    if candle_vis > 0.01:
         f = flame_sprite(t * 1.3, 9.1, 0.28)
+        if candle_vis < 1:
+            fa = np.asarray(f).copy(); fa[..., 3] = (fa[..., 3] * candle_vis).astype(np.uint8); f = Image.fromarray(fa, 'RGBA')
         cam.draw_sprite(em, f, (f.width / RS / 2, f.height / RS - 8 * 0.28), CANDLE, DEPTH['cprops'])
     if lantern_s is not None and lantern_vis > 0.01:
         zd = cam.of(DEPTH['explorer'])[1]; rr = int(30 * zd)
