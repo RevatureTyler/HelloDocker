@@ -302,30 +302,39 @@ def shelf(p, x0, x1, seed):
     p.paper([(x0 - 10, -280), (x1 + 10, -280), (x1 + 10, 360), (x0 - 10, 360)], dark, seed, amp=1.5, edge=(140, 110, 80))
     for y in (-150, 0, 150, 300):
         p.paper([(x0 - 14, y), (x1 + 14, y), (x1 + 14, y + 14), (x0 - 14, y + 14)], wood, seed + y, amp=1, edge=(170, 130, 90))
+    lim = x1 - 8                      # every item must end inside the shelf frame
     for y in (-150, 0, 150, 300):
-        x = x0 + 6
-        while x < x1 - 30:
+        x = x0 + 8
+        while True:
             kind = r.integers(3)
             if kind == 0:     # scroll pile
+                if x + 78 > lim: break
                 for k in range(3):
                     cy_ = y - 12 - k * 18
-                    p.paper([(x, cy_ - 8), (x + 70, cy_ - 8), (x + 70, cy_ + 8), (x, cy_ + 8)], (206, 184, 138), seed + int(x) + k, amp=0.5, edge=(240, 226, 190))
-                    p.d.ellipse(p.P([(x + 64, cy_ - 8), (x + 76, cy_ + 8)]), fill=(150, 120, 80, 255))
-                x += 86
+                    p.paper([(x, cy_ - 8), (x + 66, cy_ - 8), (x + 66, cy_ + 8), (x, cy_ + 8)], (206, 184, 138), seed + int(x) + k, amp=0.5, edge=(240, 226, 190))
+                    p.d.ellipse(p.P([(x + 60, cy_ - 8), (x + 72, cy_ + 8)]), fill=(150, 120, 80, 255))
+                x += 84
             elif kind == 1:   # books
-                for k in range(int(r.integers(3, 6))):
+                n = int(r.integers(3, 6)); placed = 0
+                for k in range(n):
                     h = r.uniform(70, 110); w = r.uniform(14, 22)
+                    if x + w > lim: break
                     c = [(110, 40, 30), (50, 70, 60), (90, 70, 40), (60, 46, 70)][r.integers(4)]
                     p.paper([(x, y), (x + w, y), (x + w, y - h), (x, y - h)], c, seed + int(x * 3) + k, amp=0.4, edge=(200, 170, 120))
                     p.line([(x + 2, y - h * 0.8), (x + w - 2, y - h * 0.8)], (210, 170, 90), 1.5)
-                    x += w + 2
+                    x += w + 2; placed += 1
+                if placed < n: break
                 x += 12
             else:             # clay jar
+                if x + 56 > lim: break
                 h = r.uniform(50, 80)
                 pts = [(x + 26 + 24 * math.sin(math.pi * f) ** 0.8 * (1 if f < 0.85 else 0.6), y - f * h) for f in np.linspace(0, 1, 12)]
                 pts += [(2 * (x + 26) - px, py) for px, py in reversed(pts)]
                 p.paper(pts, (140, 84, 48), seed + int(x * 5), amp=0.6, edge=(200, 150, 100))
                 x += 62
+    for xe in (x0 - 12, x1 + 2):          # side uprights frame the shelf cleanly
+        p.paper([(xe, -290), (xe + 12, -290), (xe + 12, 362), (xe, 362)], wood, seed + int(xe), amp=0.8, edge=(170, 130, 90))
+    p.paper([(x0 - 16, -292), (x1 + 16, -292), (x1 + 16, -278), (x0 - 16, -278)], wood, seed + 7, amp=0.8, edge=(170, 130, 90))
 
 
 def urns(p, x, seed, flip=1):
