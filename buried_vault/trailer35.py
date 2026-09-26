@@ -363,7 +363,7 @@ def cobweb(p, x, y, sx, seed):
 def dress_rib(p, side, i):
     """fill both flanks of an arch wall so no side of the frame is empty."""
     statue(p, -side * 1040, 1500 + i * 20)
-    shelf(p, side * 900 if side > 0 else side * 1340, side * 1340 if side > 0 else side * 900, 1600 + i * 30)
+    shelf(p, side * 980 if side > 0 else side * 1400, side * 1400 if side > 0 else side * 980, 1600 + i * 30)   # clear of the plaque (ends at |x|=920)
     urns(p, -side * 720, 1700 + i * 10, flip=-side)
     statue(p, side * 1900, 1550 + i * 20)
     shelf(p, -side * 1400 if side > 0 else -side * 1840, -side * 1840 if side > 0 else -side * 1400, 1650 + i * 30)
