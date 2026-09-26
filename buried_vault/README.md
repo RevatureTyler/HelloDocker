@@ -1,6 +1,6 @@
 # The Buried Vault — channel trailer
 
-A 20-second, 1080x1920 (9:16) paper-cut diorama trailer with synthesized ambient audio. It is rendered entirely in code with numpy, Pillow and ffmpeg.
+A 20-second, 1920x1080 (16:9) paper-cut diorama trailer with synthesized ambient audio. It is rendered entirely in code with numpy, Pillow and ffmpeg.
 
 ```
 pip install numpy pillow scipy imageio-ffmpeg

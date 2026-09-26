@@ -1,6 +1,6 @@
 """The Buried Vault — 20 s channel trailer, procedural paper-cut diorama.
 
-Renders 1080x1920 (9:16 vertical) video + synthesized ambient audio with numpy/Pillow,
+Renders 1920x1080 (16:9 landscape) video + synthesized ambient audio with numpy/Pillow,
 then encodes with ffmpeg.   Usage: python render.py [out.mp4] [--preview]
 """
 import math, os, subprocess, sys, wave
@@ -10,11 +10,15 @@ from PIL import Image, ImageDraw, ImageFilter, ImageFont
 import imageio_ffmpeg
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-W, H = 1080, 1920
+OW, OH = 1920, 1080            # output frame (16:9 landscape)
+W, H = 1080, 1920               # world design space (layout coordinates)
+XL, XR = -520, 1600             # world canvas x-extent (wider than the design space for landscape)
+CW = XR - XL
 FPS, DUR = 24, 20.0
 NF = int(FPS * DUR)
 RS = 2                        # static layers are painted at 2x world resolution
-C0 = np.array([540.0, 960.0])
+C0 = np.array([540.0, 960.0])  # world parallax pivot
+SC = np.array([OW / 2, OH / 2])
 SR = 48000
 
 # ------------------------------------------------------------------ helpers
@@ -56,6 +60,7 @@ def noise1d(n, seed, smooth=6):
 
 def torn(pts, amp, seed, step=5.0, closed=True):
     """subdivide polygon and jitter along normals -> torn-paper edge."""
+    seed = int(seed) % 1000003
     pts = [tuple(p) for p in pts]
     if closed:
         pts = pts + [pts[0]]
@@ -86,13 +91,18 @@ def arch(x0, x1, ybot, yspring, n=40):
 
 class Painter:
     """paper-cut painter on a world-sized RGBA layer at RS scale."""
-    def __init__(self, w=W, h=H):
+    def __init__(self, w=None, h=H, ox=None):
+        self.ox = -XL if ox is None and w is None else (ox or 0)
+        w = CW if w is None else w
         self.w, self.h = w, h
-        self.im = Image.new('RGBA', (w * RS, h * RS), (0, 0, 0, 0))
+        self.im = Image.new('RGBA', (int(w * RS), int(h * RS)), (0, 0, 0, 0))
         self.d = ImageDraw.Draw(self.im)
 
     def P(self, pts):
-        return [(x * RS, y * RS) for x, y in pts]
+        return [((x + self.ox) * RS, y * RS) for x, y in pts]
+
+    def X(self, x):
+        return (x + self.ox) * RS
 
     def paper(self, pts, col, seed, amp=2.2, edge=(236, 214, 170), edge_w=1.6):
         tp = torn(pts, amp, seed)
@@ -128,7 +138,7 @@ class Painter:
 # ------------------------------------------------------------------ scene constants (world coords)
 DX0, DX1, DBOT, DSPR = 300, 780, 1420, 900       # door opening (arch)
 PLQ = (190, 452, 890, 628)                        # plaque box
-TORCHES = [(168, 930), (912, 930)]                # flame base positions
+TORCHES = [(168, 930), (912, 930), (-300, 930), (1380, 930)]                # flame base positions
 CHEST = (610, 1250)                               # chest front-bottom center (chamber layer)
 FLOOR_Y = 1225
 EXS = 1.3
@@ -140,18 +150,18 @@ def build_sky():
     y = np.linspace(0, 1, H * RS, dtype=np.float32)[:, None, None]
     top, bot = np.array(hexc('#05040f'), np.float32), np.array(hexc('#1b1740'), np.float32)
     g = top * (1 - y) + bot * y
-    g = np.broadcast_to(g, (H * RS, W * RS, 3)).copy()
-    n = fbm(H * RS, W * RS, 300, 3, 4)
+    g = np.broadcast_to(g, (H * RS, CW * RS, 3)).copy()
+    n = fbm(H * RS, CW * RS, 300, 3, 4)
     g += ((n - 0.5) * 30)[..., None] * np.array([0.6, 0.5, 1.0])
     im = Image.fromarray(np.clip(g, 0, 255).astype(np.uint8)).convert('RGBA')
     d = ImageDraw.Draw(im)
     r = np.random.default_rng(5)
-    for _ in range(260):
-        x, yy = r.random() * W * RS, r.random() * 700 * RS
+    for _ in range(480):
+        x, yy = r.random() * CW * RS, r.random() * 700 * RS
         s = r.choice([1, 1, 2, 3]); a = int(r.uniform(70, 200))
         d.ellipse((x - s, yy - s, x + s, yy + s), fill=(240, 225, 190, a))
     # paper moon
-    mx, my, mr = 820 * RS, 190 * RS, 60 * RS
+    mx, my, mr = (1180 - XL) * RS, 330 * RS, 60 * RS
     d.ellipse((mx - mr - 4, my - mr - 4, mx + mr + 4, my + mr + 4), fill=(236, 214, 170, 255))
     d.ellipse((mx - mr, my - mr, mx + mr, my + mr), fill=(214, 196, 150, 255))
     d.ellipse((mx - mr + 26 * RS, my - mr - 10 * RS, mx + mr + 26 * RS, my + mr - 10 * RS), fill=(10, 9, 26, 255))
@@ -161,10 +171,10 @@ def build_sky():
 def build_dunes():
     p = Painter()
     for i, (base, col) in enumerate([(430, '#2a2146'), (500, '#3a2a4a')]):
-        pts = [(-50, H + 50), (-50, base)]
-        for x in range(-50, W + 100, 40):
+        pts = [(XL - 50, H + 50), (XL - 50, base)]
+        for x in range(XL - 50, XR + 100, 40):
             pts.append((x, base + 45 * math.sin(x / (170 + 60 * i) + i * 2) + 20 * math.sin(x / 57 + i)))
-        pts.append((W + 100, H + 50))
+        pts.append((XR + 100, H + 50))
         p.paper(pts, hexc(col), 20 + i, amp=2.5, edge=(120, 95, 110))
     return p.finish(21, shadow=(4, 8, 10, 120))
 
@@ -172,18 +182,18 @@ def build_dunes():
 def build_chamber_back():
     p = Painter()
     # back wall
-    p.d.rectangle((0, 0, W * RS, H * RS), fill=hexc('#2a2338') + (255,))
+    p.d.rectangle((0, 0, CW * RS, H * RS), fill=hexc('#2a2338') + (255,))
     r = np.random.default_rng(31)
     for row, y in enumerate(range(540, FLOOR_Y, 62)):
         off = (row % 2) * 60
-        for x in range(-120 + off, W + 120, 120):
+        for x in range(XL - 120 + off, XR + 120, 120):
             c = np.array(hexc('#3b3048')) * r.uniform(0.85, 1.12)
             p.paper([(x + 3, y + 3), (x + 117, y + 3), (x + 117, y + 59), (x + 3, y + 59)], c.astype(int), 1000 + row * 50 + x, amp=1.6, edge=(92, 78, 90), edge_w=1.0)
     # carved glyph frieze
     fy = 830
     p.paper([(180, fy - 38), (900, fy - 38), (900, fy + 38), (180, fy + 38)], hexc('#4a3b50'), 40, amp=2, edge=(120, 100, 100))
     for i, x in enumerate(range(220, 880, 70)):
-        glyph(p.d, x * RS, fy * RS, 22 * RS, i, (26, 20, 32, 255), 3 * RS)
+        glyph(p.d, p.X(x), fy * RS, 22 * RS, i, (26, 20, 32, 255), 3 * RS)
     # alcoves with urns
     for ax in (330, 760):
         p.paper(arch(ax - 55, ax + 55, 1100, 960), hexc('#16121f'), 50 + ax, amp=2, edge=(90, 70, 80))
@@ -196,12 +206,12 @@ def build_chamber_back():
             yy = 640 + k * 160
             p.d.line(p.P([(px - 30, yy), (px + 30, yy)]), fill=(30, 24, 38, 255), width=2 * RS)
     # floor
-    p.paper([(-40, FLOOR_Y), (W + 40, FLOOR_Y), (W + 40, H + 40), (-40, H + 40)], hexc('#4a3a3a'), 70, amp=2.5, edge=(150, 120, 100))
-    for k in range(-8, 9):
+    p.paper([(XL - 40, FLOOR_Y), (XR + 40, FLOOR_Y), (XR + 40, H + 40), (XL - 40, H + 40)], hexc('#4a3a3a'), 70, amp=2.5, edge=(150, 120, 100))
+    for k in range(-14, 15):
         x0 = 540 + k * 70; x1 = 540 + k * 170
         p.d.line(p.P([(x0, FLOOR_Y), (x1, H)]), fill=(58, 44, 44, 255), width=2 * RS)
     for yy in (1262, 1318, 1400, 1520):
-        p.d.line(p.P([(0, yy), (W, yy)]), fill=(58, 44, 44, 255), width=2 * RS)
+        p.d.line(p.P([(XL, yy), (XR, yy)]), fill=(58, 44, 44, 255), width=2 * RS)
     return p.finish(71, shadow=None, tex_amt=0.3)
 
 
@@ -282,24 +292,24 @@ def coin(p, x, y, s, r):
 def build_wall():
     p = Painter()
     # ruined facade silhouette
-    top = [(-40, H + 40), (-40, 360)]
-    for x in range(-40, W + 80, 30):
+    top = [(XL - 40, H + 40), (XL - 40, 360)]
+    for x in range(XL - 40, XR + 80, 30):
         step = 330 + (40 if (x // 180) % 2 else 0) + 25 * math.sin(x * 0.05)
         top.append((x, step))
-    top.append((W + 80, H + 40))
+    top.append((XR + 80, H + 40))
     hole = arch(DX0, DX1, DBOT, DSPR)
     p.paper(top, hexc('#4b3e5e'), 100, amp=3.5, edge=(170, 150, 150))
     # stone blocks
     r = np.random.default_rng(101)
     for row, y in enumerate(range(380, 1500, 74)):
         off = (row % 2) * 80
-        for x in range(-160 + off, W + 160, 160):
+        for x in range(XL - 160 + off, XR + 160, 160):
             c = np.array(hexc('#5a4a6c')) * r.uniform(0.8, 1.1)
             p.paper([(x + 4, y + 4), (x + 156, y + 4), (x + 156, y + 70), (x + 4, y + 70)], c.astype(int), 2000 + row * 97 + x, amp=2.0, edge=(120, 104, 120), edge_w=1.2)
     # carved symbols near door (torchlit)
-    for i, (gx, gy) in enumerate([(110, 760), (970, 760), (110, 1110), (970, 1110), (225, 700), (855, 700)]):
-        glyph(p.d, gx * RS, gy * RS, 26 * RS, i + 2, (34, 26, 44, 255), 4 * RS)
-        glyph(p.d, gx * RS + 3, gy * RS + 3, 26 * RS, i + 2, (130, 110, 120, 255), 2 * RS)
+    for i, (gx, gy) in enumerate([(110, 760), (970, 760), (110, 1110), (970, 1110), (225, 700), (855, 700), (-160, 700), (1240, 700), (-400, 900), (1480, 900), (-160, 1120), (1240, 1120)]):
+        glyph(p.d, p.X(gx), gy * RS, 26 * RS, i + 2, (34, 26, 44, 255), 4 * RS)
+        glyph(p.d, p.X(gx) + 3, gy * RS + 3, 26 * RS, i + 2, (130, 110, 120, 255), 2 * RS)
     # arch voussoirs
     cx, rad = (DX0 + DX1) / 2, (DX1 - DX0) / 2
     for i in range(11):
@@ -312,7 +322,7 @@ def build_wall():
         for k, yy in enumerate(range(int(DSPR), DBOT + 40, 90)):
             p.paper([(x, yy), (x + 70, yy), (x + 70, yy + 88), (x, yy + 88)], hexc('#665573'), 400 + k * 3 + side, amp=2, edge=(170, 150, 150))
     # keystone glyph
-    glyph(p.d, cx * RS, (DSPR - rad - 36) * RS, 18 * RS, 0, (30, 22, 40, 255), 3 * RS)
+    glyph(p.d, p.X(cx), (DSPR - rad - 36) * RS, 18 * RS, 0, (30, 22, 40, 255), 3 * RS)
     # plaque (blank; lettering is stamped in later)
     x0, y0, x1, y1 = PLQ
     p.paper([(x0 - 14, y0 - 14), (x1 + 14, y0 - 14), (x1 + 14, y1 + 14), (x0 - 14, y1 + 14)], hexc('#3a2f48'), 500, amp=2.5, edge=(150, 130, 130))
@@ -328,7 +338,7 @@ def build_wall():
     im = p.finish(102, shadow=(6, 12, 14, 170))
     # cut the doorway
     m = Image.new('L', im.size, 0)
-    ImageDraw.Draw(m).polygon([(x * RS, y * RS) for x, y in torn(hole, 2.0, 999)], fill=255)
+    ImageDraw.Draw(m).polygon([((x - XL) * RS, y * RS) for x, y in torn(hole, 2.0, 999)], fill=255)
     a = np.asarray(im).copy(); a[..., 3] = np.where(np.asarray(m) > 0, 0, a[..., 3])
     return Image.fromarray(a, 'RGBA')
 
@@ -336,7 +346,7 @@ def build_wall():
 def build_leaf(side):
     """one stone door leaf as a sprite (world coords local), side -1 left / +1 right."""
     wdt, hgt = 262, DBOT - (DSPR - 260) + 20
-    p = Painter(wdt + 40, hgt + 40)
+    p = Painter(wdt + 40, hgt + 40, ox=0)
     pts = [(20, 20), (wdt + 20, 20), (wdt + 20, hgt + 20), (20, hgt + 20)]
     p.paper(pts, hexc('#5f4f6c'), 600 + side, amp=2.5, edge=(170, 150, 150))
     # cracks, carvings
@@ -351,7 +361,7 @@ def build_leaf(side):
     p.paper([(40 + inner, 300), (wdt - 20 + inner, 300), (wdt - 20 + inner, hgt - 60), (40 + inner, hgt - 60)], hexc('#6d5c7a'), 620 + side, amp=2, edge=(180, 160, 150))
     cxg = 20 + wdt / 2 + (14 if side < 0 else -14)
     for i, yy in enumerate(range(380, hgt - 100, 150)):
-        glyph(p.d, cxg * RS, yy * RS, 34 * RS, i * 2 + (0 if side < 0 else 1), (34, 26, 44, 255), 4 * RS)
+        glyph(p.d, p.X(cxg), yy * RS, 34 * RS, i * 2 + (0 if side < 0 else 1), (34, 26, 44, 255), 4 * RS)
     # half of a central ring handle
     hx = wdt + 20 if side < 0 else 20
     p.d.arc(p.P([(hx - 40, 760), (hx + 40, 840)]), 0, 360, fill=(150, 120, 60, 255), width=5 * RS)
@@ -361,13 +371,13 @@ def build_leaf(side):
 
 def build_sand():
     p = Painter()
-    pts = [(-60, H + 60), (-60, 1150)]
-    for x in range(-60, W + 120, 30):
-        y = 1412 - 260 * math.exp(-((x - 20) / 260) ** 2) - 170 * math.exp(-((x - 1060) / 210) ** 2) + 8 * math.sin(x / 45) - 40 * (1 - math.exp(-((x - 540) / 330) ** 2))
+    pts = [(XL - 60, H + 60), (XL - 60, 1150)]
+    for x in range(XL - 60, XR + 120, 30):
+        y = 1412 - 60 * math.exp(-((x + 380) / 200) ** 2) - 70 * math.exp(-((x - 1420) / 220) ** 2) - 260 * math.exp(-((x - 20) / 260) ** 2) - 170 * math.exp(-((x - 1060) / 210) ** 2) + 8 * math.sin(x / 45) - 40 * (1 - math.exp(-((x - 540) / 330) ** 2))
         pts.append((x, y))
-    pts.append((W + 120, H + 60))
+    pts.append((XR + 120, H + 60))
     p.paper(pts, hexc('#8a6a44'), 700, amp=3, edge=(230, 200, 150))
-    pts2 = [(-60, H + 60), (-60, 1600)] + [(x, 1650 - 60 * math.sin(x / 260 + 1) - 12 * math.sin(x / 33)) for x in range(-60, W + 120, 30)] + [(W + 120, H + 60)]
+    pts2 = [(XL - 60, H + 60), (XL - 60, 1600)] + [(x, 1650 - 60 * math.sin(x / 260 + 1) - 12 * math.sin(x / 33)) for x in range(XL - 60, XR + 120, 30)] + [(XR + 120, H + 60)]
     p.paper(pts2, hexc('#6e5236'), 701, amp=3, edge=(200, 170, 120))
     # half-buried debris: broken column + skull-ish rock
     p.paper([(850, 1290), (1010, 1260), (1030, 1320), (870, 1350)], hexc('#5a4a60'), 702, amp=2, edge=(170, 150, 150))
@@ -512,16 +522,16 @@ def flame_sprite(t, seed, scale=1.0):
 
 
 # ------------------------------------------------------------------ camera
-KEYS = [  # t, cx, cy, zoom
-    (0.0, 540, 1000, 1.00),
-    (2.5, 540, 1008, 1.03),
-    (9.2, 548, 1082, 1.86),
-    (12.6, 560, 1092, 1.93),
-    (13.4, 560, 1092, 1.95),
-    (15.4, 540, 830, 1.17),
-    (17.6, 540, 842, 1.19),
-    (19.4, 540, 900, 1.27),
-    (20.0, 540, 902, 1.275),
+KEYS = [  # t, cx, cy, zoom  (landscape framing)
+    (0.0, 540, 930, 0.96),
+    (2.5, 540, 936, 0.98),
+    (9.2, 548, 1100, 1.55),
+    (12.6, 560, 1106, 1.60),
+    (13.4, 560, 1106, 1.62),
+    (15.4, 540, 890, 0.94),
+    (17.6, 540, 893, 0.95),
+    (19.4, 540, 905, 0.98),
+    (20.0, 540, 906, 0.982),
 ]
 
 
@@ -554,13 +564,13 @@ class Cam:
 
     def to_screen(self, p, d):
         cd, zd = self.of(d)
-        return (np.asarray(p, float) - cd) * zd + C0, zd
+        return (np.asarray(p, float) - cd) * zd + SC, zd
 
     def draw_layer(self, frame, layer, d):
         cd, zd = self.of(d)
-        x0 = (cd[0] - W / 2 / zd) * RS; y0 = (cd[1] - H / 2 / zd) * RS
-        x1 = (cd[0] + W / 2 / zd) * RS; y1 = (cd[1] + H / 2 / zd) * RS
-        frame.alpha_composite(layer.transform((W, H), Image.EXTENT, (x0, y0, x1, y1), Image.BILINEAR))
+        x0 = (cd[0] - XL - OW / 2 / zd) * RS; y0 = (cd[1] - OH / 2 / zd) * RS
+        x1 = (cd[0] - XL + OW / 2 / zd) * RS; y1 = (cd[1] + OH / 2 / zd) * RS
+        frame.alpha_composite(layer.transform((OW, OH), Image.EXTENT, (x0, y0, x1, y1), Image.BILINEAR))
 
     def draw_sprite(self, frame, spr, anchor_px, world_pos, d, rot=0.0):
         """spr painted at RS; anchor_px = anchor in sprite world units."""
@@ -623,10 +633,10 @@ def build_assets():
     A['wall'] = build_wall(); A['sand'] = build_sand()
     A['leafL'] = build_leaf(-1); A['leafR'] = build_leaf(1)
     A['logo'], A['logo_gold'] = build_logo()
-    yy, xx = np.mgrid[0:H, 0:W].astype(np.float32)
-    A['vig'] = (1 - 0.6 * np.clip(((xx - W / 2) / (W * 0.72)) ** 2 + ((yy - H / 2) / (H * 0.62)) ** 2 - 0.25, 0, 1))[..., None]
-    A['grain'] = [np.asarray(Image.fromarray(np.random.default_rng(900 + i).normal(0, 6, (H // 2, W // 2)).astype(np.float32), 'F').resize((W, H), Image.BILINEAR))[..., None] for i in range(6)]
-    A['lw'], A['lh'] = W // 4, H // 4
+    yy, xx = np.mgrid[0:OH, 0:OW].astype(np.float32)
+    A['vig'] = (1 - 0.6 * np.clip(((xx - OW / 2) / (OW * 0.62)) ** 2 + ((yy - OH / 2) / (OH * 0.72)) ** 2 - 0.25, 0, 1))[..., None]
+    A['grain'] = [np.asarray(Image.fromarray(np.random.default_rng(900 + i).normal(0, 6, (OH // 2, OW // 2)).astype(np.float32), 'F').resize((OW, OH), Image.BILINEAR))[..., None] for i in range(6)]
+    A['lw'], A['lh'] = OW // 4, OH // 4
     r = np.random.default_rng(77)
     A['motes'] = r.random((70, 4))
     A['coinglints'] = [(r.uniform(300, 880), r.uniform(1230, 1370), r.uniform(0, 6.28)) for _ in range(26)]
@@ -676,7 +686,7 @@ def radial(lw, lh, cx, cy, rad, sx=1.0, sy=1.0):
 def render_frame(fi):
     t = fi / FPS
     cam = Cam(t)
-    frame = Image.new('RGBA', (W, H), (0, 0, 0, 255))
+    frame = Image.new('RGBA', (OW, OH), (0, 0, 0, 255))
     op = door_open(t)
     for name in ('sky', 'dunes', 'cback'):
         cam.draw_layer(frame, A[name], DEPTH[name])
@@ -763,12 +773,12 @@ def render_frame(fi):
         sm = np.asarray(smask.filter(ImageFilter.GaussianBlur(3)), np.float32) / 255 * raised
         ll = ll * (1 - 0.85 * sm)
         light += ll[..., None] * np.array([1.05, 0.78, 0.45]) * li * 1.2
-    light = np.asarray(Image.fromarray(np.clip(light * 80, 0, 255).astype(np.uint8)).resize((W, H), Image.BILINEAR), np.float32) / 80
+    light = np.asarray(Image.fromarray(np.clip(light * 80, 0, 255).astype(np.uint8)).resize((OW, OH), Image.BILINEAR), np.float32) / 80
 
     rgb = np.asarray(frame.convert('RGB'), np.float32) * light
 
     # -------- emissive overlays
-    em = Image.new('RGBA', (W, H), (0, 0, 0, 0))
+    em = Image.new('RGBA', (OW, OH), (0, 0, 0, 0))
     for i, (tx, ty) in enumerate(TORCHES):
         f = flame_sprite(t, i * 3.7)
         cam.draw_sprite(em, f, (f.width / RS / 2, f.height / RS - 8), (tx, ty), 1.0)
@@ -965,19 +975,19 @@ def main():
         times = [0.8, 3.5, 6.5, 8.5, 10.5, 11.8, 13.2, 14.3, 15.2, 16.5, 18.6, 19.4]
         with Pool(4) as pool:
             res = pool.map(render_frame, [int(tt * FPS) for tt in times])
-        ims = [Image.frombytes('RGB', (W, H), b).resize((270, 480)) for b in res]
-        sheet = Image.new('RGB', (270 * 6, 480 * 2))
+        ims = [Image.frombytes('RGB', (OW, OH), b).resize((480, 270)) for b in res]
+        sheet = Image.new('RGB', (480 * 4, 270 * 3))
         for i, im in enumerate(ims):
-            sheet.paste(im, ((i % 6) * 270, (i // 6) * 480))
+            sheet.paste(im, ((i % 4) * 480, (i // 4) * 270))
         sheet.save('preview/sheet.png')
         for tt, b in zip(times, res):
-            Image.frombytes('RGB', (W, H), b).save(f'preview/t{tt:05.2f}.png')
+            Image.frombytes('RGB', (OW, OH), b).save(f'preview/t{tt:05.2f}.png')
         return
     wav = 'audio.wav'
     with wave.open(wav, 'wb') as wf:
         wf.setnchannels(2); wf.setsampwidth(2); wf.setframerate(SR); wf.writeframes(audio().tobytes())
     ff = imageio_ffmpeg.get_ffmpeg_exe()
-    proc = subprocess.Popen([ff, '-y', '-loglevel', 'error', '-f', 'rawvideo', '-pix_fmt', 'rgb24', '-s', f'{W}x{H}', '-r', str(FPS), '-i', '-',
+    proc = subprocess.Popen([ff, '-y', '-loglevel', 'error', '-f', 'rawvideo', '-pix_fmt', 'rgb24', '-s', f'{OW}x{OH}', '-r', str(FPS), '-i', '-',
                              '-i', wav, '-c:v', 'libx264', '-preset', 'slow', '-crf', '19', '-pix_fmt', 'yuv420p', '-profile:v', 'high',
                              '-c:a', 'aac', '-b:a', '192k', '-shortest', '-movflags', '+faststart', out], stdin=subprocess.PIPE)
     with Pool(4) as pool:
