@@ -570,7 +570,6 @@ def build_assets():
     yy, xx = np.mgrid[0:OH, 0:OW].astype(np.float32)
     e = np.sqrt(((xx - OW / 2) / (OW * 0.55)) ** 2 + ((yy - OH / 2) / (OH * 0.62)) ** 2) + (fbm(OH, OW, 60, 7, 4) - 0.5) * 0.3
     A['vig'] = np.clip(1 - 0.8 * np.clip((e - 0.74) / 0.5, 0, 1) ** 1.4, 0.06, 1)[..., None].astype(np.float32)
-    A['grain'] = [np.asarray(Image.fromarray(np.random.default_rng(900 + i).normal(0, 6.5, (OH // 2, OW // 2)).astype(np.float32), 'F').resize((OW, OH), Image.BILINEAR))[..., None] for i in range(6)]
     r = np.random.default_rng(77)
     A['dust'] = np.stack([r.uniform(-900, 900, 700), r.uniform(-600, 420, 700), r.uniform(-800, 8200, 700), r.uniform(0, 1, 700)], 1)
     shaft = np.zeros((600, 300), np.float32)
@@ -803,7 +802,6 @@ def render_frame(fi):
     lum = rgb.mean(axis=2, keepdims=True) / 255
     rgb = rgb * (1 - lum) * np.array([0.88, 0.9, 1.1], np.float32) + rgb * lum * np.array([1.08, 0.99, 0.84], np.float32)
     rgb *= A['vig']
-    rgb += A['grain'][fi % 6]
     fade = min(1.0, ss(t / 1.0), 1 - ss(seg(t, 33.9, 34.95)))
     return np.clip(rgb * fade, 0, 255).astype(np.uint8).tobytes()
 
@@ -913,7 +911,7 @@ def main():
         wf.setnchannels(2); wf.setsampwidth(2); wf.setframerate(SR); wf.writeframes(audio().tobytes())
     ff = imageio_ffmpeg.get_ffmpeg_exe()
     proc = subprocess.Popen([ff, '-y', '-loglevel', 'error', '-f', 'rawvideo', '-pix_fmt', 'rgb24', '-s', f'{OW}x{OH}', '-r', str(FPS), '-i', '-',
-                             '-i', wav, '-c:v', 'libx264', '-preset', 'slow', '-crf', '22', '-pix_fmt', 'yuv420p', '-profile:v', 'high',
+                             '-i', wav, '-c:v', 'libx264', '-preset', 'slow', '-crf', '18', '-pix_fmt', 'yuv420p', '-profile:v', 'high',
                              '-c:a', 'aac', '-b:a', '192k', '-shortest', '-movflags', '+faststart', out], stdin=subprocess.PIPE)
     with Pool(4) as pool:
         for i, b in enumerate(pool.imap(render_frame, range(NF), chunksize=4)):
