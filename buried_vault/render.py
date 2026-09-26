@@ -724,6 +724,16 @@ def radial(lw, lh, cx, cy, rad, sx=1.0, sy=1.0):
     return 1 / (1 + d2 * 3.0) * np.clip(1.4 - d2 * 0.35, 0, 1)
 
 
+def lantern_visibility(cam, t, ls):
+    """0 while the lantern is hidden behind the wall or the open door leaf, 1 once it is in the doorway."""
+    dsc, zd = cam.to_screen(DC, 1.0)
+    inside = (RI * zd - math.hypot(ls[0] - dsc[0], ls[1] - dsc[1])) / (35 * zd)
+    th = door_angle(t)
+    leaf_edge = HINGE_X + (DC[0] + RL - HINGE_X) * math.cos(th) + 34 * math.sin(th)
+    past_leaf = (ls[0] - cam.to_screen((leaf_edge, DC[1]), 1.0)[0][0]) / (35 * zd)
+    return ss(min(inside, past_leaf))
+
+
 def draw_leaf(frame, cam, t):
     """door leaf swinging toward camera on its left hinge."""
     th = door_angle(t)
@@ -753,6 +763,7 @@ def render_frame(fi):
     cam.draw_layer(frame, A['bg'], DEPTH['bg'])
     ex, ph, arm, walking, raised = explorer_state(t)
     lantern_s = lantern_w = None
+    lantern_vis = 0.0
     if op > 0.001:
         cam.draw_layer(frame, A['cback'], DEPTH['cback'])
         chest, anc = chest_sprite(lid_angle(t))
@@ -765,8 +776,9 @@ def render_frame(fi):
             cam.draw_sprite(frame, spr, (anc[0] * EXS, anc[1] * EXS), feet, DEPTH['explorer'])
             lantern_w = (feet[0] + lan[0] * EXS, feet[1] + lan[1] * EXS)
             lantern_s, _ = cam.to_screen(lantern_w, DEPTH['explorer'])
+            lantern_vis = lantern_visibility(cam, t, lantern_s)
         for k in range(3):  # moths circling the candle and lantern
-            tgt = CANDLE if (k == 0 or lantern_w is None) else lantern_w
+            tgt = CANDLE if (k == 0 or lantern_w is None or lantern_vis < 0.5) else lantern_w
             a = t * (1.3 + 0.4 * k) + k * 2.1
             mx = tgt[0] + 46 * math.cos(a) + 10 * math.sin(t * 3.7 + k)
             my = tgt[1] - 20 + 26 * math.sin(a * 1.3) + 8 * math.cos(t * 4.1 + k)
@@ -812,7 +824,7 @@ def render_frame(fi):
             pts = [cam.to_screen(p_, DEPTH['cprops'])[0] / q for p_ in poly + [(ox + half, base), (ox - half, base)]]
             sd.polygon([tuple(p_) for p_ in pts], fill=200)
         sm = np.asarray(smask.filter(ImageFilter.GaussianBlur(3)), np.float32) / 255 * raised
-        light += (ll * (1 - 0.85 * sm))[..., None] * np.array([1.05, 0.78, 0.45]) * li * 1.2 * op
+        light += (ll * (1 - 0.85 * sm))[..., None] * np.array([1.05, 0.78, 0.45]) * li * 1.2 * op * lantern_vis
     light = np.asarray(Image.fromarray(np.clip(light * 80, 0, 255).astype(np.uint8)).resize((OW, OH), Image.BILINEAR), np.float32) / 80
     rgb = np.asarray(frame.convert('RGB'), np.float32) * light
 
@@ -824,9 +836,9 @@ def render_frame(fi):
     if op > 0.001:
         f = flame_sprite(t * 1.3, 9.1, 0.28)
         cam.draw_sprite(em, f, (f.width / RS / 2, f.height / RS - 8 * 0.28), CANDLE, DEPTH['cprops'])
-    if lantern_s is not None:
+    if lantern_s is not None and lantern_vis > 0.01:
         zd = cam.of(DEPTH['explorer'])[1]; rr = int(30 * zd)
-        paste(em, glow_blob(rr, (255, 200, 110), 0.55), lantern_s[0] - 2 * rr, lantern_s[1] - 2 * rr)
+        paste(em, glow_blob(rr, (255, 200, 110), round(0.55 * lantern_vis, 2)), lantern_s[0] - 2 * rr, lantern_s[1] - 2 * rr)
     if burst > 0 and op > 0.001:
         s, zd = cam.to_screen((CHEST[0], CHEST[1] - 90), DEPTH['cprops'])
         sw_, sh_ = int(260 * zd), int(420 * zd)
@@ -846,7 +858,7 @@ def render_frame(fi):
             dd.ellipse((sp[0] - rr, sp[1] - rr, sp[0] + rr, sp[1] + rr), fill=(255, 236, 180, al))
     if lantern_s is not None and raised > 0:
         for (gx, gy, ph) in A['coinglints']:
-            v = max(0.0, math.sin(t * 3 + ph)) ** 8 * raised * op
+            v = max(0.0, math.sin(t * 3 + ph)) ** 8 * raised * op * lantern_vis
             if v < 0.05: continue
             sp, zd2 = cam.to_screen((gx, gy), DEPTH['cprops']); rr = 5 * zd2 * v
             dd.line((sp[0] - rr, sp[1], sp[0] + rr, sp[1]), fill=(255, 240, 190, int(230 * v)), width=2)
